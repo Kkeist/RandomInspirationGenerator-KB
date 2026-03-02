@@ -4647,23 +4647,17 @@ textarea.form-control {
     align-items: center;
     gap: 0.75rem;
     margin-bottom: 0.75rem;
-    flex-wrap: nowrap;
 }
 
 .catch-theme-label {
     font-size: 0.9rem;
     color: #495057;
-    white-space: nowrap;
-    flex-shrink: 0;
 }
 
 .catch-theme-btns {
     display: flex;
     gap: 0.5rem;
-    flex-wrap: nowrap;
-    min-width: 0;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    flex-wrap: wrap;
 }
 
 .catch-theme-btn {
