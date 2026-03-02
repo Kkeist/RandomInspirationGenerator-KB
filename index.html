@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>哐哐牌灵感生成机</title>
+    <link rel="icon" href="192pxIcon.PNG" type="image/png" sizes="192x192">
+    <link rel="apple-touch-icon" href="192pxIcon.PNG">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+</head>
+<body>
+    <!-- 口令锁页面 -->
+    <div id="auth-screen" class="screen">
+        <div class="auth-container">
+            <h1>哐哐牌灵感生成机</h1>
+            <div class="auth-form">
+                <p>请输入口令（5个字）：</p>
+                <input type="text" id="password-input" placeholder="请输入口令">
+                <button id="auth-submit">确认</button>
+                <div id="auth-error" class="error-message"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主应用页面 -->
+    <div id="main-app" class="screen hidden">
+        <!-- 侧边栏遮罩（打开时点击关闭） -->
+        <div id="sidebar-backdrop" class="sidebar-backdrop hidden"></div>
+        <!-- 侧边栏 -->
+        <div id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>元素管理</h3>
+                <button id="close-sidebar" class="close-btn">&times;</button>
+            </div>
+            <div class="sidebar-content">
+                <div class="sidebar-section">
+                    <h4>词库管理</h4>
+                    <button id="new-library-btn" class="action-btn">新建词库</button>
+                    <div id="libraries-list" class="items-list"></div>
+                </div>
+                <div class="sidebar-section">
+                    <h4>默认收藏夹（元素）</h4>
+                    <p class="sidebar-hint">即设置中用于收藏词条时使用的默认分组，可在下方选择。</p>
+                    <div class="default-fav-in-group">
+                        <label class="default-fav-label">选择：</label>
+                        <select id="default-favorite-element-select" class="default-favorite-select"></select>
+                    </div>
+                    <div class="group-buttons-row">
+                        <button id="new-element-group-btn" class="action-btn">新建元素分组</button>
+                    </div>
+                    <div id="element-groups-list" class="items-list"></div>
+                </div>
+                <div class="sidebar-section">
+                    <h4>默认收藏夹（组合）</h4>
+                    <p class="sidebar-hint">即设置中用于收藏词条组合时使用的默认分组，可在下方选择。</p>
+                    <div class="default-fav-in-group">
+                        <label class="default-fav-label">选择：</label>
+                        <select id="default-favorite-combination-select" class="default-favorite-select"></select>
+                    </div>
+                    <div class="group-buttons-row">
+                        <button id="new-group-btn" class="action-btn">新建元素组合分组</button>
+                    </div>
+                    <div id="combination-groups-list" class="items-list"></div>
+                </div>
+                <div class="sidebar-section">
+                    <h4>黑名单</h4>
+                    <button id="blacklist-btn" class="action-btn">管理黑名单</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div id="main-content" class="main-content">
+            <!-- 顶部导航 -->
+            <header class="header">
+                <button id="menu-btn" class="menu-btn">☰</button>
+                <h1>哐哐牌灵感生成机</h1>
+                <div class="header-right">
+                    <button id="history-btn" class="history-btn">历史</button>
+                    <button id="settings-btn" class="settings-btn">⚙️</button>
+                </div>
+            </header>
+
+            <!-- 工具箱（点击打开弹窗选择工具）：按钮为 emoji+工具箱，旁边单独显示当前工具标题 -->
+            <div class="toolbox-selector">
+                <button id="toolbox-btn" class="toolbox-btn" type="button" aria-label="切换生成工具">
+                    <span class="toolbox-btn-icon" aria-hidden="true">🧰</span>
+                    <span class="toolbox-btn-text">工具箱</span>
+                </button>
+                <span class="toolbox-current-title" id="toolbox-btn-label">基础生成</span>
+            </div>
+
+            <!-- 词库选择区 -->
+            <div class="library-selector">
+                <div class="selector-row">
+                    <div class="selected-libraries">
+                        <div class="selector-label">已选词库 / 分组：</div>
+                        <div id="selected-items" class="selected-items"></div>
+                        <button id="add-library-btn" class="add-btn">+ 选择</button>
+                    </div>
+                    <div class="quick-switch">
+                        <button id="save-switch-btn" class="switch-btn">保存为一键开关</button>
+                        <button id="quick-switch-btn" class="switch-btn btn-select">一键开关</button>
+                    </div>
+                </div>
+                <div id="system-options-row" class="system-options-row hidden">
+                    <span class="system-options-label">生成时筛选：</span>
+                    <label><input type="checkbox" id="opt-common" class="opt-cb"> 常见</label>
+                    <label><input type="checkbox" id="opt-second-common" class="opt-cb"> 次常见</label>
+                    <label><input type="checkbox" id="opt-negative" class="opt-cb"> 负面</label>
+                </div>
+                <div id="emoji-options-row" class="system-options-row emoji-options-row hidden">
+                    <div class="emoji-filter-primary">
+                        <span class="system-options-label">Emoji 筛选：</span>
+                        <label><input type="checkbox" id="opt-emoji-hide-insects" class="opt-cb"> 我有恐虫症，但我不恐蝴蝶</label>
+                        <button type="button" id="emoji-category-toggle-btn" class="btn-emoji-filter-toggle">▸ 分类筛选</button>
+                    </div>
+                    <div id="emoji-category-filter-wrap" class="emoji-category-filter-wrap hidden">
+                        <div class="emoji-category-actions">
+                            <button type="button" id="emoji-category-toggle-all" class="btn btn-sm">全选</button>
+                        </div>
+                        <div id="emoji-category-tree" class="emoji-category-tree"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 生成工具区域 -->
+            <div id="generation-area" class="generation-area">
+                <!-- 不同工具的内容会动态加载到这里 -->
+            </div>
+
+            <!-- 结果显示区：白框与底部信息分离 -->
+            <div id="results-area" class="results-area">
+                <div id="results-content-box" class="results-content-box results-content-box-empty">
+                    <div id="results-content" class="results-content"></div>
+                </div>
+            </div>
+
+            <!-- 系统信息 -->
+            <footer class="footer">
+                <div class="credits">
+                    <p>感谢贰六，李阙信，绫，纸箱，枳礼和我为词汇分类做出的贡献。</p>
+                    <p>感谢参与"决战元素之巅"活动选手贡献的词汇元素。</p>
+                </div>
+                <div class="author-info">
+                    <p>本程序由 況北 倾情制作。</p>
+                    <p>全网同名 <span class="copyable" data-text="哐哐哐況">哐哐哐況</span></p>
+                    <p>熊猫绘画id <span class="copyable" data-text="13357270">13357270</span></p>
+                    <p>小红书号<span class="copyable" data-text="11316425866">11316425866</span></p>
+                    <p>b站UID: <span class="copyable" data-text="620088699">620088699</span></p>
+                </div>
+                <div class="disclaimer">
+                    <p>本灵感生成器完全免费，能有帮助就太好了，欢迎分享给你的朋友~</p>
+                    <p>请不要倒卖，我保留法律追溯的权利^^</p>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- 模态框容器 -->
+    <div id="modal-container" class="modal-container hidden"></div>
+
+    <!-- 设置页面 -->
+    <div id="settings-screen" class="screen hidden">
+        <div class="settings-container">
+            <div class="settings-header">
+                <h2>设置</h2>
+                <button id="close-settings" class="close-btn">&times;</button>
+            </div>
+            <div class="settings-content">
+                <div class="setting-section">
+                    <h3>数据管理</h3>
+                    <button id="export-data-btn" class="action-btn">导出数据</button>
+                    <input type="file" id="import-file" accept=".json" style="display: none;">
+                    <button id="import-data-btn" class="action-btn">导入数据</button>
+                    <button id="reset-data-btn" class="action-btn action-btn-danger">一键初始化</button>
+                </div>
+                <div class="setting-section">
+                    <details class="setting-details">
+                        <summary class="setting-summary theme-summary">
+                            <span>美化效果</span>
+                            <span class="theme-current-name" id="theme-current-name">云与灰</span>
+                        </summary>
+                        <div class="setting-details-content">
+                                <div class="theme-select-wrap">
+                                <p class="theme-select-label">选择全局外观</p>
+                                <div class="theme-options">
+                                    <button type="button" class="theme-option theme-btn active" data-theme="default">
+                                        <span class="theme-option-name">云与灰</span>
+                                        <span class="theme-option-desc">云与灰？云雨灰。最经典，简约的样式。</span>
+                                    </button>
+                                    <button type="button" class="theme-option theme-btn" data-theme="notes">
+                                        <span class="theme-option-name">人生纸条</span>
+                                        <span class="theme-option-desc">也许你需要一张人生纸条？总之是一张春天的便签纸。</span>
+                                    </button>
+                                    <button type="button" class="theme-option theme-btn" data-theme="doomsday">
+                                        <span class="theme-option-name">末日游戏</span>
+                                        <span class="theme-option-desc">就好像要准备参加末日求生一样。</span>
+                                    </button>
+                                    <button type="button" class="theme-option theme-btn" data-theme="sea">
+                                        <span class="theme-option-name">温柔海</span>
+                                        <span class="theme-option-desc">那么，给心中的海写封信吧。</span>
+                                    </button>
+                                    <button type="button" class="theme-option theme-btn" data-theme="spring">
+                                        <span class="theme-option-name">春日烂漫</span>
+                                        <span class="theme-option-desc">静候花开～然后……大吃一口鲜花饼！</span>
+                                    </button>
+                                    <button type="button" class="theme-option theme-btn" data-theme="custom">
+                                        <span class="theme-option-name">自定义主题</span>
+                                        <span class="theme-option-desc">使用色彩随机里保存的组合作为整体主题，和云雨灰一样的结构。点击后弹窗选择组合。</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="SystemElementData.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

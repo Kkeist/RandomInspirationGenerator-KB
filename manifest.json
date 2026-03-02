@@ -1,0 +1,22 @@
+{
+  "name": "哐哐牌灵感生成机",
+  "short_name": "灵感生成机",
+  "description": "随机灵感生成器，支持多种创意生成模式",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "192pxIcon.PNG",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "512pxIcon.PNG", 
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
