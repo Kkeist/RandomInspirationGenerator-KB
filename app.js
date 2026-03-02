@@ -1331,13 +1331,11 @@ class InspirationGenerator {
             this.showBlacklistModal();
         });
 
-        // 快捷复制
+        // 快捷复制（使用 copyToClipboard 避免反复请求剪贴板权限）
         document.querySelectorAll('.copyable').forEach(element => {
             element.addEventListener('click', () => {
                 const text = element.dataset.text;
-                navigator.clipboard.writeText(text).then(() => {
-                    this.showToast(`已复制: ${text}`);
-                });
+                if (text) this.copyToClipboard(text, `已复制: ${text}`);
             });
         });
 
@@ -2161,9 +2159,7 @@ class InspirationGenerator {
             if (e.target.closest('.result-item') || e.target.closest('.result-combo-edit')) return;
             timer = setTimeout(() => {
                 const text = getText();
-                if (text && navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(text).then(() => this.showToast('已复制到剪贴板'));
-                }
+                if (text) this.copyToClipboard(text, '已复制到剪贴板');
                 timer = null;
             }, delay);
         };
@@ -3203,9 +3199,7 @@ class InspirationGenerator {
         const titleEl = modal.querySelector('.element-detail-title');
         if (titleEl) titleEl.addEventListener('click', () => {
             const text = element.name;
-            if (text && navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(() => this.showToast('已复制'));
-            }
+            if (text) this.copyToClipboard(text, '已复制');
         });
         if (titleEl) titleEl.style.cursor = 'pointer';
         if (titleEl) titleEl.title = '点击复制';
@@ -3478,9 +3472,7 @@ class InspirationGenerator {
                 const remainingIds = getRemainingIds();
                 const text = remainingIds.map(eid => { const el = this.getElementById(eid); return el ? el.name : eid; }).join(' + ');
                 if (!text) { this.showToast('当前无元素可复制'); return; }
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(text).then(() => this.showToast('已复制到剪贴板')).catch(() => this.showToast('复制失败'));
-                } else { this.showToast('复制失败'); }
+                if (!this.copyToClipboard(text, '已复制到剪贴板')) this.showToast('复制失败');
             }},
         ];
         if (!fromResults) {
@@ -5422,7 +5414,7 @@ class InspirationGenerator {
         bindSliderWithNum(hEl, hNum, 0, 360, (v) => setPickFromHSL(v, null, null));
         bindSliderWithNum(sEl, sNum, 0, 100, (v) => setPickFromHSL(null, v, null));
         bindSliderWithNum(lEl, lNum, 0, 100, (v) => setPickFromHSL(null, null, v));
-        if (hslDisplay) hslDisplay.addEventListener('click', () => { const t = hslDisplay.dataset.copy; if (t) navigator.clipboard.writeText(t).then(() => this.showToast('已复制 HSL')); });
+        if (hslDisplay) hslDisplay.addEventListener('click', () => { const t = hslDisplay.dataset.copy; if (t) this.copyToClipboard(t, '已复制 HSL'); });
         hexInput && hexInput.addEventListener('input', () => {
             let hex = hexInput.value.trim();
             if (!hex.startsWith('#')) hex = '#' + hex;
@@ -5826,8 +5818,8 @@ class InspirationGenerator {
 
         const hslRow = document.getElementById('color-detail-hsl');
         const hexRow = document.getElementById('color-detail-hex');
-        if (hslRow) hslRow.onclick = () => { const t = hslRow.dataset.copy; if (t) navigator.clipboard.writeText(t).then(() => this.showToast(`已复制: ${t}`)); };
-        if (hexRow) hexRow.onclick = () => { const t = hexRow.dataset.copy; if (t) navigator.clipboard.writeText(t).then(() => this.showToast(`已复制: ${t}`)); };
+        if (hslRow) hslRow.onclick = () => { const t = hslRow.dataset.copy; if (t) this.copyToClipboard(t, `已复制: ${t}`); };
+        if (hexRow) hexRow.onclick = () => { const t = hexRow.dataset.copy; if (t) this.copyToClipboard(t, `已复制: ${t}`); };
 
         const combined = [...(this._colorCurrentResults || []), ...(this._colorCustomList || [])];
         if (combined.length > 0) {
@@ -8185,26 +8177,7 @@ class InspirationGenerator {
                 self.showToast('暂无内容可复制');
                 return;
             }
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(() => self.showToast('已复制到剪贴板')).catch(() => fallbackCopy(text));
-            } else {
-                fallbackCopy(text);
-            }
-            function fallbackCopy(str) {
-                const ta = document.createElement('textarea');
-                ta.value = str;
-                ta.style.position = 'fixed';
-                ta.style.opacity = '0';
-                document.body.appendChild(ta);
-                ta.select();
-                try {
-                    document.execCommand('copy');
-                    self.showToast('已复制到剪贴板');
-                } catch (err) {
-                    self.showToast('复制失败');
-                }
-                document.body.removeChild(ta);
-            }
+            if (!self.copyToClipboard(text, '已复制到剪贴板')) self.showToast('复制失败');
         });
 
         newBtn && newBtn.addEventListener('click', () => {
@@ -9625,6 +9598,7 @@ class InspirationGenerator {
                         <span id="player-money" class="money-amount">${money}</span>
                     </div>
                     <button type="button" id="refresh-shop-btn" class="btn btn-secondary shop-refresh-btn"><span id="refresh-btn-icon">🪙</span> <span id="refresh-btn-cost">50金币刷新</span></button>
+                    <button type="button" id="shop-restart-header-btn" class="btn btn-sm btn-outline-primary ml-2">重新开始</button>
                 </div>
                 <div id="shop-game-over" class="shop-game-over hidden">
                     <span id="shop-game-over-text"></span>
@@ -9653,6 +9627,8 @@ class InspirationGenerator {
         document.getElementById('refresh-shop-btn').addEventListener('click', () => {
             this.shopRefresh();
         });
+        const restartHeaderBtn = document.getElementById('shop-restart-header-btn');
+        if (restartHeaderBtn) restartHeaderBtn.addEventListener('click', () => this.shopRestart());
         document.getElementById('combine-items-btn').addEventListener('click', () => this.combineInventoryItems());
         document.getElementById('sell-all-btn').addEventListener('click', () => this.sellAllItems());
         this.shopUpdateRefreshHint();
@@ -9891,7 +9867,7 @@ class InspirationGenerator {
                 <button type="button" class="btn btn-sm btn-secondary" id="shop-auction-plus10">+10</button>
             </div>
         `, [
-            { text: '放弃', class: 'btn-secondary', action: () => this.closeModal() },
+            { text: '放弃', class: 'btn-secondary', action: () => { this.showToast('机会错过不会再来'); this.closeModal(); } },
             { text: '出价', class: 'btn-primary', action: () => {
                 const myBid = myBidAmount;
                 const minBid = isFirstBid ? currentBid : currentBid + 10;
@@ -9949,7 +9925,7 @@ class InspirationGenerator {
             <label>起拍价 <input type="number" id="shop-auction-sell-price" class="form-control" value="${list[0].suggest}" min="0"></label>
         `;
         const modal = this.createModal('🔨 挂卖拍卖', content, [
-            { text: '取消', class: 'btn-secondary', action: () => this.closeModal() },
+            { text: '取消', class: 'btn-secondary', action: () => { this.showToast('机会错过不会再来'); this.closeModal(); } },
             { text: '上拍', class: 'btn-primary', action: () => {
                 const idx = parseInt(modal.querySelector('#shop-auction-sell-select').value, 10);
                 const price = parseInt(modal.querySelector('#shop-auction-sell-price').value, 10) || 0;
@@ -9992,6 +9968,7 @@ class InspirationGenerator {
         const price = cardType.price;
         const tiers = cardType.tiers;
         let bought = false;
+        let scratchDone = false;
         let resultAmount = 0;
         let resultTierName = '';
         const rollResult = () => {
@@ -10019,7 +9996,13 @@ class InspirationGenerator {
                 </div>
             </div>
         `;
-        const modal = this.createModal('🎫 命运刮刮乐', '<div id="shop-scratch-container"></div>', [{ text: '关闭', class: 'btn-primary', action: () => this.closeModal() }]);
+        const onScratchClose = () => {
+            if (bought && !scratchDone) this.showToast('你忘刮了。但你已经扔掉了。');
+            this.closeModal();
+        };
+        const modal = this.createModal('🎫 命运刮刮乐', '<div id="shop-scratch-container"></div>', [
+            { text: '关闭', class: 'btn-primary', action: onScratchClose }
+        ], null, onScratchClose);
         const wrap = modal.querySelector('#shop-scratch-container');
         if (wrap) wrap.appendChild(container);
         const card = container.querySelector('#shop-scratch-card');
@@ -10050,6 +10033,7 @@ class InspirationGenerator {
             reveal.classList.remove('hidden');
             reveal.textContent = resultTierName;
             card.classList.add('scratch-done');
+            scratchDone = true;
             if (resultAmount > 0) this.showToast('获得 ' + resultAmount + ' 金币');
             else this.showToast('谢谢惠顾');
         });
@@ -10233,6 +10217,7 @@ class InspirationGenerator {
         const item = this.shopState.shopItems.find(i => i.id === itemId);
         if (!item || item.purchased || this.shopState.playerMoney < item.price) return;
         item.purchased = true;
+        this.shopState.playerMoney -= item.price;
         this.shopState.inventory.push({
             type: 'element',
             element: item.element,
@@ -10243,6 +10228,7 @@ class InspirationGenerator {
         this.renderShopItems();
         this.updateInventoryDisplay();
         this.shopCheckGameOver();
+        this.shopUpdateRefreshHint();
         const profit = item.actualValue - item.price;
         const profitText = profit > 0 ? `+${profit}` : `${profit}`;
         this.showToast(`购买成功！实际价值：${item.actualValue} (${profitText})`, 3000);
