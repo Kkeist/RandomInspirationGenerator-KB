@@ -2459,6 +2459,7 @@ class InspirationGenerator {
         const onPointerMove = (e) => {
             if (!draggingEl) return;
             e.preventDefault();
+            e.stopPropagation();
             const items = containerEl.querySelectorAll('.sidebar-item');
             const y = (e.clientY != null) ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
             let idx = -1;
@@ -2517,6 +2518,7 @@ class InspirationGenerator {
                 if (e.target.closest('button')) return;
                 if (listKey === 'libraries' && itemEl.dataset.system === 'true') return;
                 e.preventDefault();
+                e.stopPropagation();
                 clearTimer();
                 longPressTimer = setTimeout(() => {
                     longPressTimer = null;
