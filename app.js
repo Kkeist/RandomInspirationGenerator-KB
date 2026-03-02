@@ -4000,6 +4000,30 @@ class InspirationGenerator {
         this.userData.colorFavorites = curFav;
     }
 
+    // 统一复制方法：使用 execCommand('copy')，避免频繁触发剪贴板权限弹窗
+    copyToClipboard(text, successMessage = '已复制到剪贴板') {
+        if (!text && text !== '') return false;
+        const str = String(text);
+        const ta = document.createElement('textarea');
+        ta.value = str;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        ta.style.top = '0';
+        ta.setAttribute('readonly', '');
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, str.length);
+        let ok = false;
+        try {
+            ok = document.execCommand && document.execCommand('copy');
+        } catch (e) {
+            ok = false;
+        }
+        document.body.removeChild(ta);
+        if (ok) this.showToast(successMessage);
+        return ok;
+    }
+
     // 工具提示
     showToast(message, duration = 3000) {
         const toast = document.createElement('div');
@@ -9598,7 +9622,6 @@ class InspirationGenerator {
                         <span id="player-money" class="money-amount">${money}</span>
                     </div>
                     <button type="button" id="refresh-shop-btn" class="btn btn-secondary shop-refresh-btn"><span id="refresh-btn-icon">🪙</span> <span id="refresh-btn-cost">50金币刷新</span></button>
-                    <button type="button" id="shop-restart-header-btn" class="btn btn-sm btn-outline-primary ml-2">重新开始</button>
                 </div>
                 <div id="shop-game-over" class="shop-game-over hidden">
                     <span id="shop-game-over-text"></span>
@@ -9617,6 +9640,9 @@ class InspirationGenerator {
                         <button id="sell-all-btn" class="btn btn-danger" disabled>全部出售</button>
                     </div>
                 </div>
+                <div class="shop-restart-area">
+                    <button type="button" id="shop-restart-main-btn" class="btn shop-restart-btn">重新开始</button>
+                </div>
             </div>
         `;
 
@@ -9627,8 +9653,6 @@ class InspirationGenerator {
         document.getElementById('refresh-shop-btn').addEventListener('click', () => {
             this.shopRefresh();
         });
-        const restartHeaderBtn = document.getElementById('shop-restart-header-btn');
-        if (restartHeaderBtn) restartHeaderBtn.addEventListener('click', () => this.shopRestart());
         document.getElementById('combine-items-btn').addEventListener('click', () => this.combineInventoryItems());
         document.getElementById('sell-all-btn').addEventListener('click', () => this.sellAllItems());
         this.shopUpdateRefreshHint();
@@ -9653,7 +9677,9 @@ class InspirationGenerator {
         });
 
         const restartBtn = document.getElementById('shop-restart-btn');
-        if (restartBtn) restartBtn.addEventListener('click', () => this.shopRestart());
+        if (restartBtn) restartBtn.addEventListener('click', () => this.handleShopRestartClick());
+        const restartMainBtn = document.getElementById('shop-restart-main-btn');
+        if (restartMainBtn) restartMainBtn.addEventListener('click', () => this.handleShopRestartClick());
 
         this.generateShopItems();
         this.updateMoneyDisplay();
@@ -9663,6 +9689,10 @@ class InspirationGenerator {
     updateMoneyDisplay() {
         const el = document.getElementById('player-money');
         if (el && this.shopState && this.shopState.playerMoney != null) el.textContent = String(this.shopState.playerMoney);
+    }
+
+    handleShopRestartClick() {
+        this.showConfirmModal('确定要用初始资金重新开始这一局吗？', () => this.shopRestart());
     }
 
     shopRestart() {
@@ -10091,7 +10121,12 @@ class InspirationGenerator {
         const el = document.getElementById('shop-game-over');
         const textEl = el && el.querySelector('#shop-game-over-text');
         if (el) el.classList.remove('hidden');
-        if (textEl) textEl.textContent = '💰 资金用尽，游戏结束。可在本页调整初始资金后点击重新开始。';
+        const isInventoryEmpty = !this.shopState.inventory || this.shopState.inventory.length === 0;
+        if (textEl) {
+            textEl.textContent = isInventoryEmpty
+                ? '你破产了'
+                : '💰 资金用尽，游戏结束。可在本页调整初始资金后点击重新开始。';
+        }
         document.querySelectorAll('.buy-btn').forEach(b => b.disabled = true);
         const refreshBtn = document.getElementById('refresh-shop-btn');
         if (refreshBtn) refreshBtn.disabled = true;

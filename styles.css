@@ -3778,6 +3778,17 @@ textarea.form-control {
     gap: 0.35em;
 }
 
+.shop-restart-area {
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    border-top: 1px dashed #dee2e6;
+    text-align: center;
+}
+
+.shop-restart-btn {
+    min-width: 7rem;
+}
+
 .shop-tool-content {
     max-width: 720px;
 }
@@ -7471,7 +7482,8 @@ body.theme-notes .telepathy-clear-btn:hover {
 }
 
 /* 人生纸条：一掷千金按钮 */
-body.theme-notes .shop-refresh-btn {
+body.theme-notes .shop-refresh-btn,
+body.theme-notes .shop-restart-btn {
     background: var(--notes-green) !important;
     color: #fff !important;
     border-color: var(--notes-green-dark) !important;
