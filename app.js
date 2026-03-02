@@ -1398,25 +1398,99 @@ class InspirationGenerator {
         return [...DEFAULT_TOOL_ORDER];
     }
 
-    // 工具箱弹窗：标题「也许人生需要一定仪式感……」，小方形图标网格，可拖拽排序，点击选中工具
+    // 工具箱弹窗：标题「也许人生需要一定仪式感……」，小方形图标网格，可拖拽排序，点击选中工具；移动端可滚动+可拖拽滚动条
     showToolboxModal() {
         const order = this.getToolOrder();
         const currentTool = this.currentTool;
         const content = `
-            <div class="toolbox-grid" id="toolbox-grid">
-                ${order.map(toolId => `
-                    <div class="toolbox-tool-icon ${toolId === currentTool ? 'active' : ''}" data-tool="${toolId}" draggable="true">
-                        <span class="tool-icon-emoji">${TOOL_ICONS[toolId] || '🔧'}</span>
-                        <span class="tool-icon-label">${TOOL_NAMES[toolId] || toolId}</span>
-                    </div>
-                `).join('')}
+            <div class="toolbox-modal-scroll-wrap" id="toolbox-scroll-wrap">
+                <div class="toolbox-grid" id="toolbox-grid">
+                    ${order.map(toolId => `
+                        <div class="toolbox-tool-icon ${toolId === currentTool ? 'active' : ''}" data-tool="${toolId}" draggable="true">
+                            <span class="tool-icon-emoji">${TOOL_ICONS[toolId] || '🔧'}</span>
+                            <span class="tool-icon-label">${TOOL_NAMES[toolId] || toolId}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            <div class="toolbox-scroll-bar-wrap" id="toolbox-scroll-bar-wrap">
+                <div class="toolbox-scroll-bar" id="toolbox-scroll-bar"></div>
             </div>
         `;
         const modal = this.createModal('也许人生需要一定仪式感……', content, []);
         modal.classList.add('toolbox-modal');
 
         const grid = modal.querySelector('#toolbox-grid');
+        const scrollWrap = modal.querySelector('#toolbox-scroll-wrap');
+        const barWrap = modal.querySelector('#toolbox-scroll-bar-wrap');
+        const bar = modal.querySelector('#toolbox-scroll-bar');
         if (!grid) return;
+
+        // 移动端：可拖拽滚动条，摁着上下滑动控制内容区滚动
+        if (scrollWrap && barWrap && bar) {
+            const updateBar = () => {
+                const sh = scrollWrap.scrollHeight;
+                const ch = scrollWrap.clientHeight;
+                if (sh <= ch) { bar.style.display = 'none'; return; }
+                bar.style.display = 'block';
+                const trackH = barWrap.getBoundingClientRect().height;
+                const barH = Math.max(32, (ch / sh) * trackH);
+                bar.style.height = barH + 'px';
+                const maxScroll = sh - ch;
+                const maxBarTop = trackH - barH;
+                bar.style.transform = `translateY(${(scrollWrap.scrollTop / maxScroll) * maxBarTop}px)`;
+            };
+            const onScroll = () => { updateBar(); };
+            scrollWrap.addEventListener('scroll', onScroll);
+            let barStartY = 0, scrollStartTop = 0;
+            const onBarPointerMove = (e) => {
+                if (e.touches) e.preventDefault();
+                const y = e.touches ? e.touches[0].clientY : e.clientY;
+                const trackRect = barWrap.getBoundingClientRect();
+                const barRect = bar.getBoundingClientRect();
+                const trackH = trackRect.height;
+                const barH = barRect.height;
+                const maxBarTop = trackH - barH;
+                const deltaY = y - barStartY;
+                const maxScroll = scrollWrap.scrollHeight - scrollWrap.clientHeight;
+                const ratio = maxBarTop > 0 ? maxScroll / maxBarTop : 0;
+                let newTop = scrollStartTop + deltaY * ratio;
+                newTop = Math.max(0, Math.min(maxScroll, newTop));
+                scrollWrap.scrollTop = newTop;
+            };
+            const onBarPointerUp = () => {
+                document.body.classList.remove('drag-active');
+                document.removeEventListener('pointermove', onBarPointerMove);
+                document.removeEventListener('pointerup', onBarPointerUp);
+                document.removeEventListener('pointercancel', onBarPointerUp);
+                document.removeEventListener('touchmove', onBarPointerMove);
+                document.removeEventListener('touchend', onBarPointerUp);
+                document.removeEventListener('touchcancel', onBarPointerUp);
+            };
+            bar.addEventListener('pointerdown', (e) => {
+                if (e.button !== 0 && e.pointerType !== 'touch') return;
+                e.preventDefault();
+                barStartY = e.touches ? e.touches[0].clientY : e.clientY;
+                scrollStartTop = scrollWrap.scrollTop;
+                document.body.classList.add('drag-active');
+                document.addEventListener('pointermove', onBarPointerMove);
+                document.addEventListener('pointerup', onBarPointerUp);
+                document.addEventListener('pointercancel', onBarPointerUp);
+            });
+            bar.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                e.preventDefault();
+                barStartY = e.touches[0].clientY;
+                scrollStartTop = scrollWrap.scrollTop;
+                document.body.classList.add('drag-active');
+                document.addEventListener('touchmove', onBarPointerMove, { passive: false });
+                document.addEventListener('touchend', onBarPointerUp);
+                document.addEventListener('touchcancel', onBarPointerUp);
+            }, { passive: false });
+            updateBar();
+            const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateBar) : null;
+            if (ro) ro.observe(scrollWrap);
+        }
 
         // 点击图标：选中该工具并关闭弹窗
         grid.querySelectorAll('.toolbox-tool-icon').forEach(el => {
