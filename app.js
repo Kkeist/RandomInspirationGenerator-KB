@@ -2442,38 +2442,35 @@ class InspirationGenerator {
             if (sortFirstId) return [...list].sort((a, b) => (a.bindingId === sortFirstId ? -1 : b.bindingId === sortFirstId ? 1 : 0)).map(x => x.bindingId);
             return list.map(x => x.bindingId);
         };
-        let longPressTimer = null;
-        let draggingEl = null; // 被拖拽的元素（会被移到 body，悬浮显示）
-        let dragId = null;
-        let dropIndex = -1;
-        let placeholderEl = null; // 占位符，保持列表高度
-        let dragOffsetY = 0; // 指针相对元素顶部的偏移
-        let pressStartY = 0;
-        const LONG_PRESS_MS = 500;
 
-        const clearTimer = () => {
-            if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+        let draggingId = null;      // 正在拖拽的 bindingId
+        let dragGhost = null;       // 悬浮的“影子”元素，只负责显示
+        let dragOffsetY = 0;        // 指针相对元素顶部的偏移
+        let dropIndex = -1;
+
+        const clearDrag = () => {
+            if (dragGhost && dragGhost.parentNode) dragGhost.parentNode.removeChild(dragGhost);
+            dragGhost = null;
+            draggingId = null;
+            dropIndex = -1;
+            containerEl.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('drop-indicator'));
         };
-        const clearPlaceholder = () => {
-            if (placeholderEl && placeholderEl.parentNode) {
-                placeholderEl.parentNode.removeChild(placeholderEl);
-            }
-            placeholderEl = null;
-        };
+
         const setDropIndicator = (index) => {
-            containerEl.querySelectorAll('.sidebar-item').forEach((el, i) => {
-                el.classList.toggle('drop-indicator', i === index && draggingEl);
+            const items = containerEl.querySelectorAll('.sidebar-item');
+            items.forEach((el, i) => {
+                el.classList.toggle('drop-indicator', i === index && draggingId);
             });
         };
+
         const updateDropIndex = (clientY) => {
-            const items = Array.from(containerEl.querySelectorAll('.sidebar-item')).filter(el => !el.classList.contains('sidebar-item-placeholder'));
+            const items = Array.from(containerEl.querySelectorAll('.sidebar-item'));
             if (items.length === 0) { dropIndex = -1; setDropIndicator(dropIndex); return; }
             let idx = -1;
             items.forEach((el, i) => {
                 const r = el.getBoundingClientRect();
                 if (clientY >= r.top && clientY <= r.bottom) idx = i;
             });
-            // 如果拖到最上/最下方之外，也给出一个合理的 index
             const firstRect = items[0].getBoundingClientRect();
             const lastRect = items[items.length - 1].getBoundingClientRect();
             if (clientY < firstRect.top) idx = 0;
@@ -2481,63 +2478,53 @@ class InspirationGenerator {
             dropIndex = idx;
             setDropIndicator(dropIndex);
         };
+
         const onPointerMove = (e) => {
-            if (!draggingEl) return;
+            if (!dragGhost || !draggingId) return;
             e.preventDefault();
             e.stopPropagation();
             const y = (e.clientY != null) ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
             const newTop = y - dragOffsetY;
-            draggingEl.style.top = newTop + 'px';
+            dragGhost.style.top = newTop + 'px';
             updateDropIndex(y);
         };
+
         const finishDrag = () => {
-            if (!draggingEl || !dragId) {
-                clearPlaceholder();
-                if (draggingEl && draggingEl.parentNode === document.body) draggingEl.remove();
-                draggingEl = null; dragId = null; dropIndex = -1; setDropIndicator(-1);
+            if (!draggingId || dropIndex === -1) {
+                clearDrag();
                 return;
             }
             const ids = getOrderedIds();
-            const fromIdx = ids.indexOf(dragId);
-            if (fromIdx === -1 || dropIndex === -1 || fromIdx === dropIndex) {
-                clearPlaceholder();
-                if (draggingEl && draggingEl.parentNode === document.body) draggingEl.remove();
-                draggingEl = null; dragId = null; dropIndex = -1; setDropIndicator(-1);
+            const fromIdx = ids.indexOf(draggingId);
+            if (fromIdx === -1 || fromIdx === dropIndex) {
+                clearDrag();
                 return;
             }
+
             if (listKey === 'libraries') {
                 const visible = list.filter(l => !l.isFavorites);
-                const item = visible.find(x => x.bindingId === dragId);
-                if (!item) {
-                    clearPlaceholder();
-                    if (draggingEl && draggingEl.parentNode === document.body) draggingEl.remove();
-                    draggingEl = null; dragId = null; dropIndex = -1; setDropIndicator(-1); return;
-                }
+                const item = visible.find(x => x.bindingId === draggingId);
+                if (!item) { clearDrag(); return; }
                 visible.splice(fromIdx, 1);
                 visible.splice(dropIndex, 0, item);
                 this.userData.libraries = [...list.filter(l => l.isFavorites), ...visible];
             } else {
-                const item = list.find(x => x.bindingId === dragId);
-                if (!item) {
-                    clearPlaceholder();
-                    if (draggingEl && draggingEl.parentNode === document.body) draggingEl.remove();
-                    draggingEl = null; dragId = null; dropIndex = -1; setDropIndicator(-1); return;
-                }
+                const item = list.find(x => x.bindingId === draggingId);
+                if (!item) { clearDrag(); return; }
                 const ordered = sortFirstId ? [...list].sort((a, b) => (a.bindingId === sortFirstId ? -1 : b.bindingId === sortFirstId ? 1 : 0)) : [...list];
                 ordered.splice(fromIdx, 1);
                 ordered.splice(dropIndex, 0, item);
                 this.userData[listKey].splice(0, this.userData[listKey].length, ...ordered);
             }
+
             this.saveUserData();
             this.renderSidebar();
             this.showToast('顺序已更新');
-            clearPlaceholder();
-            if (draggingEl && draggingEl.parentNode === document.body) draggingEl.remove();
-            draggingEl = null; dragId = null; dropIndex = -1; setDropIndicator(-1);
+            clearDrag();
         };
+
         const onPointerUp = () => {
-            clearTimer();
-            if (draggingEl) finishDrag();
+            finishDrag();
             document.body.classList.remove('drag-active');
             document.removeEventListener('pointermove', onPointerMove);
             document.removeEventListener('pointerup', onPointerUp);
@@ -2550,41 +2537,31 @@ class InspirationGenerator {
             itemEl.addEventListener('pointerdown', (e) => {
                 if (e.button !== 0 && e.pointerType !== 'touch') return;
                 if (e.target.closest('button')) return;
-                if (listKey === 'libraries' && itemEl.dataset.system === 'true') return;
                 e.preventDefault();
                 e.stopPropagation();
-                clearTimer();
-                pressStartY = (e.clientY != null) ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-                longPressTimer = setTimeout(() => {
-                    longPressTimer = null;
-                    const rect = itemEl.getBoundingClientRect();
-                    dragOffsetY = pressStartY - rect.top;
-                    draggingEl = itemEl;
-                    dragId = id;
-                    // 创建占位符，保持列表高度与原来一致
-                    clearPlaceholder();
-                    placeholderEl = document.createElement('div');
-                    placeholderEl.className = 'sidebar-item sidebar-item-placeholder';
-                    placeholderEl.style.height = rect.height + 'px';
-                    placeholderEl.style.margin = getComputedStyle(itemEl).margin;
-                    containerEl.insertBefore(placeholderEl, itemEl.nextSibling);
-                    // 将原元素移到 body，作为悬浮拖拽元素
-                    itemEl.classList.add('sidebar-item-dragging');
-                    itemEl.style.position = 'fixed';
-                    itemEl.style.left = rect.left + 'px';
-                    itemEl.style.top = rect.top + 'px';
-                    itemEl.style.width = rect.width + 'px';
-                    itemEl.style.zIndex = '1100';
-                    document.body.appendChild(itemEl);
-                    updateDropIndex(rect.top + rect.height / 2);
-                    document.body.classList.add('drag-active');
-                    document.addEventListener('pointermove', onPointerMove);
-                    document.addEventListener('pointerup', onPointerUp);
-                    document.addEventListener('pointercancel', onPointerUp);
-                }, LONG_PRESS_MS);
+
+                const rect = itemEl.getBoundingClientRect();
+                const startY = (e.clientY != null) ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : rect.top);
+                dragOffsetY = startY - rect.top;
+                draggingId = id;
+
+                // 创建悬浮影子元素（原元素保持在列表中），避免“东西被搬走”
+                dragGhost = itemEl.cloneNode(true);
+                dragGhost.classList.add('sidebar-item-dragging');
+                dragGhost.style.position = 'fixed';
+                dragGhost.style.left = rect.left + 'px';
+                dragGhost.style.top = rect.top + 'px';
+                dragGhost.style.width = rect.width + 'px';
+                dragGhost.style.zIndex = '1100';
+                dragGhost.style.pointerEvents = 'none';
+                document.body.appendChild(dragGhost);
+
+                updateDropIndex(rect.top + rect.height / 2);
+                document.body.classList.add('drag-active');
+                document.addEventListener('pointermove', onPointerMove);
+                document.addEventListener('pointerup', onPointerUp);
+                document.addEventListener('pointercancel', onPointerUp);
             });
-            itemEl.addEventListener('pointerup', clearTimer);
-            itemEl.addEventListener('pointerleave', clearTimer);
         });
     }
 
