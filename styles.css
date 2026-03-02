@@ -39,6 +39,16 @@
     --theme-modal-backdrop: rgba(0,0,0,0.3);
 }
 
+/* 云雨灰（默认）：勾选、滑块等控件统一灰色，覆盖浏览器默认红色 */
+input[type="checkbox"],
+.opt-cb,
+.lib-cb,
+.eg-cb,
+.group-cb,
+.element-group-cb {
+    accent-color: #6c757d;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background-color: var(--theme-bg);
@@ -644,8 +654,8 @@ body {
 }
 
 .selected-item .remove-btn {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-    border: 1px solid #bd2130;
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    border: 1px solid #495057;
     border-radius: 4px;
     color: white;
     padding: 0.2rem 0.4rem;
