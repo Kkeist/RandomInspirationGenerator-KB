@@ -645,46 +645,6 @@ body.drag-active #sidebar .items-list {
     -webkit-overflow-scrolling: touch;
     padding-right: 0.25rem;
 }
-/* 移动端专用：可拖拽的滚动条 */
-.toolbox-scroll-bar-wrap {
-    display: none;
-}
-@media (max-width: 768px) {
-    .toolbox-modal .modal-content {
-        display: flex;
-        gap: 0.5rem;
-        padding-right: 0.5rem;
-    }
-    .toolbox-modal-scroll-wrap {
-        flex: 1;
-        min-width: 0;
-    }
-    .toolbox-scroll-bar-wrap {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-        width: 24px;
-        flex-shrink: 0;
-        touch-action: none;
-        align-self: stretch;
-        min-height: 0;
-    }
-    .toolbox-scroll-bar {
-        width: 8px;
-        min-height: 32px;
-        border-radius: 4px;
-        background: rgba(0,0,0,0.2);
-        cursor: grab;
-        touch-action: none;
-        flex-shrink: 0;
-        transition: transform 0.05s ease-out;
-    }
-    .toolbox-scroll-bar:active {
-        cursor: grabbing;
-        background: rgba(0,0,0,0.35);
-    }
-}
 
 /* 词库选择区 */
 .library-selector {
@@ -4652,6 +4612,10 @@ textarea.form-control {
 .catch-theme-label {
     font-size: 0.9rem;
     color: #495057;
+    display: inline-block;
+    width: 72px;          /* 用固定像素宽度，保证两行冒号在同一竖线 */
+    text-align: right;
+    white-space: nowrap;  /* 这四个字+冒号不换行，按钮可以换行 */
 }
 
 .catch-theme-btns {
