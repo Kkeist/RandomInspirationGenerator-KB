@@ -1436,11 +1436,13 @@ class InspirationGenerator {
             if (!e.target.classList.contains('toolbox-tool-icon')) return;
             draggedEl = e.target;
             e.target.classList.add('dragging');
+            document.body.classList.add('drag-active');
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', e.target.dataset.tool);
             e.dataTransfer.setData('text/html', e.target.outerHTML);
         });
         grid.addEventListener('dragend', (e) => {
+            document.body.classList.remove('drag-active');
             if (e.target.classList.contains('toolbox-tool-icon')) e.target.classList.remove('dragging');
             draggedEl = null;
             grid.querySelectorAll('.toolbox-tool-icon').forEach(el => el.classList.remove('drag-over'));
@@ -2427,6 +2429,7 @@ class InspirationGenerator {
         const onPointerUp = () => {
             clearTimer();
             if (draggingEl) finishDrag();
+            document.body.classList.remove('drag-active');
             document.removeEventListener('pointermove', onPointerMove);
             document.removeEventListener('pointerup', onPointerUp);
             document.removeEventListener('pointercancel', onPointerUp);
@@ -2447,6 +2450,7 @@ class InspirationGenerator {
                     dragId = id;
                     dropIndex = Array.from(containerEl.querySelectorAll('.sidebar-item')).indexOf(itemEl);
                     itemEl.classList.add('sidebar-item-dragging');
+                    document.body.classList.add('drag-active');
                     setDropIndicator(dropIndex);
                     document.addEventListener('pointermove', onPointerMove);
                     document.addEventListener('pointerup', onPointerUp);
@@ -7310,12 +7314,17 @@ class InspirationGenerator {
         const canvas = document.getElementById('game-canvas');
         const basket = document.getElementById('basket');
         if (canvas && basket) {
-            const onMouseDown = (e) => {
-                if (e.button !== 0) return;
-                this.catchGameState.dragStartX = e.clientX;
+            const getClientX = (e) => (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX);
+            const onPointerDown = (e) => {
+                if (e.type === 'mousedown' && e.button !== 0) return;
+                this.catchGameState.dragStartX = getClientX(e);
                 this.catchGameState.dragStartLeft = this.catchGameState.basketPosition;
+                document.body.classList.add('drag-active');
                 document.addEventListener('mousemove', onMouseMove);
                 document.addEventListener('mouseup', onMouseUp);
+                document.addEventListener('touchmove', onTouchMove, { passive: false });
+                document.addEventListener('touchend', onTouchEnd);
+                document.addEventListener('touchcancel', onTouchEnd);
             };
             const onMouseMove = (e) => {
                 const rect = canvas.getBoundingClientRect();
@@ -7325,11 +7334,36 @@ class InspirationGenerator {
                 this.catchGameState.basketPosition = pct;
                 basket.style.left = pct + '%';
             };
+            const onTouchMove = (e) => {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const x = e.touches[0].clientX;
+                const delta = (x - this.catchGameState.dragStartX) / rect.width * 100;
+                let pct = (this.catchGameState.dragStartLeft || 50) + delta;
+                pct = Math.max(5, Math.min(95, pct));
+                this.catchGameState.basketPosition = pct;
+                this.catchGameState.dragStartX = x;
+                this.catchGameState.dragStartLeft = pct;
+                basket.style.left = pct + '%';
+            };
             const onMouseUp = () => {
+                document.body.classList.remove('drag-active');
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
+                document.removeEventListener('touchmove', onTouchMove);
+                document.removeEventListener('touchend', onTouchEnd);
+                document.removeEventListener('touchcancel', onTouchEnd);
             };
-            basket.addEventListener('mousedown', onMouseDown);
+            const onTouchEnd = () => {
+                document.body.classList.remove('drag-active');
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                document.removeEventListener('touchmove', onTouchMove);
+                document.removeEventListener('touchend', onTouchEnd);
+                document.removeEventListener('touchcancel', onTouchEnd);
+            };
+            basket.addEventListener('mousedown', (e) => { if (e.button === 0) onPointerDown(e); });
+            basket.addEventListener('touchstart', (e) => { if (e.touches.length === 1) onPointerDown(e); }, { passive: true });
         }
         this.renderCatchGiftBox();
     }
