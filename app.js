@@ -2443,53 +2443,86 @@ class InspirationGenerator {
             return list.map(x => x.bindingId);
         };
         let longPressTimer = null;
-        let draggingEl = null;
+        let draggingEl = null; // 被拖拽的元素（会被移到 body，悬浮显示）
         let dragId = null;
         let dropIndex = -1;
+        let placeholderEl = null; // 占位符，保持列表高度
+        let dragOffsetY = 0; // 指针相对元素顶部的偏移
+        let pressStartY = 0;
         const LONG_PRESS_MS = 500;
 
         const clearTimer = () => {
             if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+        };
+        const clearPlaceholder = () => {
+            if (placeholderEl && placeholderEl.parentNode) {
+                placeholderEl.parentNode.removeChild(placeholderEl);
+            }
+            placeholderEl = null;
         };
         const setDropIndicator = (index) => {
             containerEl.querySelectorAll('.sidebar-item').forEach((el, i) => {
                 el.classList.toggle('drop-indicator', i === index && draggingEl);
             });
         };
+        const updateDropIndex = (clientY) => {
+            const items = Array.from(containerEl.querySelectorAll('.sidebar-item')).filter(el => !el.classList.contains('sidebar-item-placeholder'));
+            if (items.length === 0) { dropIndex = -1; setDropIndicator(dropIndex); return; }
+            let idx = -1;
+            items.forEach((el, i) => {
+                const r = el.getBoundingClientRect();
+                if (clientY >= r.top && clientY <= r.bottom) idx = i;
+            });
+            // 如果拖到最上/最下方之外，也给出一个合理的 index
+            const firstRect = items[0].getBoundingClientRect();
+            const lastRect = items[items.length - 1].getBoundingClientRect();
+            if (clientY < firstRect.top) idx = 0;
+            if (clientY > lastRect.bottom) idx = items.length - 1;
+            dropIndex = idx;
+            setDropIndicator(dropIndex);
+        };
         const onPointerMove = (e) => {
             if (!draggingEl) return;
             e.preventDefault();
             e.stopPropagation();
-            const items = containerEl.querySelectorAll('.sidebar-item');
             const y = (e.clientY != null) ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-            let idx = -1;
-            items.forEach((el, i) => {
-                if (el === draggingEl) return;
-                const r = el.getBoundingClientRect();
-                if (y >= r.top && y <= r.bottom) idx = i;
-            });
-            if (idx >= 0) dropIndex = idx;
-            setDropIndicator(dropIndex);
+            const newTop = y - dragOffsetY;
+            draggingEl.style.top = newTop + 'px';
+            updateDropIndex(y);
         };
         const finishDrag = () => {
-            if (!draggingEl || !dragId) { draggingEl = null; dragId = null; setDropIndicator(-1); return; }
+            if (!draggingEl || !dragId) {
+                clearPlaceholder();
+                if (draggingEl && draggingEl.parentNode === document.body) draggingEl.remove();
+                draggingEl = null; dragId = null; dropIndex = -1; setDropIndicator(-1);
+                return;
+            }
             const ids = getOrderedIds();
             const fromIdx = ids.indexOf(dragId);
             if (fromIdx === -1 || dropIndex === -1 || fromIdx === dropIndex) {
-                draggingEl.classList.remove('sidebar-item-dragging');
-                draggingEl = null; dragId = null; setDropIndicator(-1);
+                clearPlaceholder();
+                if (draggingEl && draggingEl.parentNode === document.body) draggingEl.remove();
+                draggingEl = null; dragId = null; dropIndex = -1; setDropIndicator(-1);
                 return;
             }
             if (listKey === 'libraries') {
                 const visible = list.filter(l => !l.isFavorites);
                 const item = visible.find(x => x.bindingId === dragId);
-                if (!item) { draggingEl.classList.remove('sidebar-item-dragging'); draggingEl = null; dragId = null; setDropIndicator(-1); return; }
+                if (!item) {
+                    clearPlaceholder();
+                    if (draggingEl && draggingEl.parentNode === document.body) draggingEl.remove();
+                    draggingEl = null; dragId = null; dropIndex = -1; setDropIndicator(-1); return;
+                }
                 visible.splice(fromIdx, 1);
                 visible.splice(dropIndex, 0, item);
                 this.userData.libraries = [...list.filter(l => l.isFavorites), ...visible];
             } else {
                 const item = list.find(x => x.bindingId === dragId);
-                if (!item) { draggingEl.classList.remove('sidebar-item-dragging'); draggingEl = null; dragId = null; setDropIndicator(-1); return; }
+                if (!item) {
+                    clearPlaceholder();
+                    if (draggingEl && draggingEl.parentNode === document.body) draggingEl.remove();
+                    draggingEl = null; dragId = null; dropIndex = -1; setDropIndicator(-1); return;
+                }
                 const ordered = sortFirstId ? [...list].sort((a, b) => (a.bindingId === sortFirstId ? -1 : b.bindingId === sortFirstId ? 1 : 0)) : [...list];
                 ordered.splice(fromIdx, 1);
                 ordered.splice(dropIndex, 0, item);
@@ -2498,8 +2531,9 @@ class InspirationGenerator {
             this.saveUserData();
             this.renderSidebar();
             this.showToast('顺序已更新');
-            draggingEl.classList.remove('sidebar-item-dragging');
-            draggingEl = null; dragId = null; setDropIndicator(-1);
+            clearPlaceholder();
+            if (draggingEl && draggingEl.parentNode === document.body) draggingEl.remove();
+            draggingEl = null; dragId = null; dropIndex = -1; setDropIndicator(-1);
         };
         const onPointerUp = () => {
             clearTimer();
@@ -2520,14 +2554,30 @@ class InspirationGenerator {
                 e.preventDefault();
                 e.stopPropagation();
                 clearTimer();
+                pressStartY = (e.clientY != null) ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
                 longPressTimer = setTimeout(() => {
                     longPressTimer = null;
+                    const rect = itemEl.getBoundingClientRect();
+                    dragOffsetY = pressStartY - rect.top;
                     draggingEl = itemEl;
                     dragId = id;
-                    dropIndex = Array.from(containerEl.querySelectorAll('.sidebar-item')).indexOf(itemEl);
+                    // 创建占位符，保持列表高度与原来一致
+                    clearPlaceholder();
+                    placeholderEl = document.createElement('div');
+                    placeholderEl.className = 'sidebar-item sidebar-item-placeholder';
+                    placeholderEl.style.height = rect.height + 'px';
+                    placeholderEl.style.margin = getComputedStyle(itemEl).margin;
+                    containerEl.insertBefore(placeholderEl, itemEl.nextSibling);
+                    // 将原元素移到 body，作为悬浮拖拽元素
                     itemEl.classList.add('sidebar-item-dragging');
+                    itemEl.style.position = 'fixed';
+                    itemEl.style.left = rect.left + 'px';
+                    itemEl.style.top = rect.top + 'px';
+                    itemEl.style.width = rect.width + 'px';
+                    itemEl.style.zIndex = '1100';
+                    document.body.appendChild(itemEl);
+                    updateDropIndex(rect.top + rect.height / 2);
                     document.body.classList.add('drag-active');
-                    setDropIndicator(dropIndex);
                     document.addEventListener('pointermove', onPointerMove);
                     document.addEventListener('pointerup', onPointerUp);
                     document.addEventListener('pointercancel', onPointerUp);
