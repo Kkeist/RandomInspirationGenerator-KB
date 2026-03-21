@@ -18,3 +18,10 @@ npm-debug.log*
 .env
 .env.local
 *.local
+
+# 依赖与构建产物
+node_modules/
+android/app/build/
+android/app/release/
+android/build/
+android/.gradle/

@@ -1,3 +1,7 @@
+# 发版版本号（每次上线前递增；建议与 index.html 中静态资源 ?v= 保持一致）
+[build.environment]
+  APP_DEPLOY_VERSION = "4"
+
 # 静态站点，无需构建命令
 [build]
   publish = "."
